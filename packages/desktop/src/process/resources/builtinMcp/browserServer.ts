@@ -108,22 +108,34 @@ logDiagnostic(`Connecting chrome-devtools-mcp to the in-app browser bridge at ${
 const CHROME_DEVTOOLS_MCP_VERSION = '0.16.0';
 
 /**
- * Windows 上 npx 实际是 npx.cmd，不走 shell 的 spawn 会直接 ENOENT。
- * On Windows npx is npx.cmd, which spawn cannot exec without a shell.
+ * Windows 上 npx 实际是 npx.cmd 批处理文件，Node 的原生 spawn（shell: false）无法
+ * 直接启动它：CreateProcess 不能执行 .cmd 批处理（实测 Node 24 抛 EINVAL）。
+ * 因此 Windows 分支显式走 cmd.exe /c，把命令行交给 cmd 解析；非 Windows 上 npx
+ * 是普通可执行文件，直接 spawn 即可。
+ *
+ * On Windows `npx` is the batch file npx.cmd, which Node's native spawn
+ * (shell: false) cannot launch: CreateProcess cannot execute a .cmd file and
+ * Node 24 throws EINVAL. So on Windows we run `cmd.exe /c` and let cmd parse
+ * the command line, while on other platforms npx is spawned directly.
  */
 const isWindows = process.platform === 'win32';
 
-const child = spawn(
-  isWindows ? 'npx.cmd' : 'npx',
-  ['-y', `chrome-devtools-mcp@${CHROME_DEVTOOLS_MCP_VERSION}`, '--browser-url', browserUrl],
-  {
-    // stdio 直通：这个进程只是转发者，MCP 协议流不能被中间层缓冲或改写
-    // Pass stdio straight through: this process is a forwarder, and the MCP
-    // protocol stream must not be buffered or rewritten in between.
-    stdio: 'inherit',
-    env: process.env,
-  }
-);
+const child = isWindows
+  ? spawn(
+      'cmd.exe',
+      ['/d', '/s', '/c', `npx.cmd -y chrome-devtools-mcp@${CHROME_DEVTOOLS_MCP_VERSION} --browser-url ${browserUrl}`],
+      {
+        // stdio 直通：这个进程只是转发者，MCP 协议流不能被中间层缓冲或改写
+        // Pass stdio straight through: this process is a forwarder, and the MCP
+        // protocol stream must not be buffered or rewritten in between.
+        stdio: 'inherit',
+        env: process.env,
+      }
+    )
+  : spawn('npx', ['-y', `chrome-devtools-mcp@${CHROME_DEVTOOLS_MCP_VERSION}`, '--browser-url', browserUrl], {
+      stdio: 'inherit',
+      env: process.env,
+    });
 
 child.on('error', (error) => {
   logDiagnostic(`Failed to spawn chrome-devtools-mcp: ${error instanceof Error ? error.message : String(error)}`);
