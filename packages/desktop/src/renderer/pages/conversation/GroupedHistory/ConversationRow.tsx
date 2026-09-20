@@ -13,7 +13,18 @@ import { resolveConversationLeadingMark } from '@/renderer/pages/conversation/ut
 import { cleanupSiderTooltips, getSiderTooltipProps } from '@/renderer/utils/ui/siderTooltip';
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import { Checkbox, Dropdown, Menu, Spin, Tooltip } from '@arco-design/web-react';
-import { DeleteOne, EditOne, Export, Inbox, MessageOne, MoreOne, Pushpin, Robot, Timer } from '@icon-park/react';
+import {
+  Attention,
+  EditOne,
+  Export,
+  FolderClose,
+  Inbox,
+  MessageOne,
+  MoreOne,
+  Pushpin,
+  Robot,
+  Timer,
+} from '@icon-park/react';
 import ForkBranchIcon from '@renderer/components/base/ForkBranchIcon';
 import classNames from 'classnames';
 import React from 'react';
@@ -26,6 +37,7 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
   const {
     conversation,
     isGenerating,
+    isWaitingConfirmation,
     hasUnread,
     collapsed,
     tooltipEnabled,
@@ -46,7 +58,7 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
     onMenuVisibleChange,
     onEditStart,
     onCreateCronTask,
-    onDelete,
+    onArchive,
     onExport,
     onTogglePin,
     onToggleManualUnread,
@@ -131,8 +143,13 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
     onOpenMenu(conversation);
   };
 
+  // Waiting on the user takes visual precedence over the generating spinner: a
+  // paused turn still streams frames that mark it "generating", so without this
+  // the distinct icon would never win.
+  const showWaitingConfirmation = isWaitingConfirmation && !batchMode;
+
   const renderCompletionUnreadDot = () => {
-    if (batchMode || !hasUnread || isGenerating) {
+    if (batchMode || !hasUnread || isGenerating || isWaitingConfirmation) {
       return null;
     }
 
@@ -178,12 +195,24 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
           </span>
         )}
         <span className='size-22px flex items-center justify-center shrink-0 relative'>
-          {isGenerating && !batchMode ? <Spin size={16} /> : renderLeadingIcon()}
+          {showWaitingConfirmation ? (
+            <Attention
+              theme='filled'
+              size='16'
+              className='line-height-0 flex-shrink-0 text-warning animate-wiggle'
+              data-testid={`conversation-waiting-confirmation-${conversation.id}`}
+            />
+          ) : isGenerating && !batchMode ? (
+            <Spin size={16} />
+          ) : (
+            renderLeadingIcon()
+          )}
           {/* Hover overlay on the leading icon: drag handle for sortable pinned rows, pushpin marker otherwise */}
           {!batchMode &&
             isPinned &&
             !isMobile &&
             !isGenerating &&
+            !isWaitingConfirmation &&
             (dragHandle ?? (
               <span
                 className='absolute inset-0 flex-center text-t-secondary pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity'
@@ -261,8 +290,8 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
                       onExport?.(conversation);
                       return;
                     }
-                    if (key === 'delete') {
-                      onDelete(conversation.id);
+                    if (key === 'archive') {
+                      onArchive(conversation);
                     }
                   }}
                 >
@@ -300,10 +329,10 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
                       </div>
                     </Menu.Item>
                   )}
-                  <Menu.Item key='delete'>
-                    <div className='flex items-center gap-8px text-[rgb(var(--warning-6))]'>
-                      <DeleteOne theme='outline' size='14' />
-                      <span>{t('conversation.history.deleteTitle')}</span>
+                  <Menu.Item key='archive'>
+                    <div className='flex items-center gap-8px'>
+                      <FolderClose theme='outline' size='14' />
+                      <span>{t('conversation.history.archive')}</span>
                     </div>
                   </Menu.Item>
                 </Menu>

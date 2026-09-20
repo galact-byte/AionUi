@@ -571,13 +571,13 @@ export type ExplorerMenuCaps = Record<ExplorerMenuItemKey, boolean>;
 /**
  * The context menu grouped into ordered sections:
  *   1. add-to-chat
- *   2. locate / copy paths (open location, copy relative, copy absolute)
+ *   2. read-only utilities (open location, copy relative, copy absolute)
  *   3. mutate (new file, new dir, rename, delete, remove-from-project)
- * Only enabled items appear, and only non-empty sections are returned — so the
- * caller draws a divider simply between adjacent returned sections, and the
- * "only between two non-empty sections, never leading/trailing/doubled" property
- * falls out of dropping the empty sections here. Returns `[]` when no action is
- * enabled (the node then shows no menu at all).
+ * Only enabled items appear, and only
+ * non-empty sections are returned — so the caller draws a divider simply between
+ * adjacent returned sections, and the "only between two non-empty sections, never
+ * leading/trailing/doubled" property falls out of dropping the empty sections
+ * here. Returns `[]` when no action is enabled (the node then shows no menu at all).
  */
 export function explorerContextMenuSections(caps: ExplorerMenuCaps): ExplorerMenuItemKey[][] {
   const sections: ExplorerMenuItemKey[][] = [
